@@ -40,7 +40,6 @@
 - [ ] O diff tem só arquivos desta mudança.
 - [ ] Sem binários, `.DS_Store` ou arquivos de editor no diff.
 - [ ] Fontes consultadas anotadas para a seção de Referências do relatório.
-- [ ] Se usei IA nesta mudança, registrei no `log.md`.
 - [ ] Consigo explicar cada parte do código na apresentação.
 
 ## Evidências
