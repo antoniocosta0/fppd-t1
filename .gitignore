@@ -4,3 +4,5 @@
 log.md
 *.test
 *.out
+log-new.md
+*.txt

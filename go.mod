@@ -1,3 +1,3 @@
 module t1-fppd
 
-go 1.27
+go 1.21
