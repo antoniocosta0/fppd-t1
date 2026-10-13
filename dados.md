@@ -1,3 +1,21 @@
+### base_deadlock -n 5 -r 3 -pausa 50 -limite 3 (deadlock detectado)
+base_deadlock: N=5 R=3 pausa=50ms limite=3s
+
+DEADLOCK detectado: nenhum progresso em 3s
+as 4 condicoes de Coffman estao presentes:
+  1. exclusao mutua  : cada garfo (channel com buffer 1) tem um dono por vez
+  2. hold and wait   : cada filosofo segura o garfo esquerdo e espera o direito
+  3. nao preempcao   : nenhum filosofo tira o garfo de outro
+  4. espera circular : i espera i+1 e o ultimo espera o garfo 0
+
+filosofo  refeicoes  espera media   estado final
+0         0          0s             com o garfo esquerdo (esperando o direito)
+1         0          0s             com o garfo esquerdo (esperando o direito)
+2         0          0s             com o garfo esquerdo (esperando o direito)
+3         0          0s             com o garfo esquerdo (esperando o direito)
+4         0          0s             com o garfo esquerdo (esperando o direito)
+
+total de refeicoes: 0
 ### base_deadlock -n 5 -r 3 -pausa 0 -limite 3 (10 execucoes: 0 deadlocks, 10 terminaram)
 terminou sem deadlock (todos os 5 filosofos fizeram 3 refeicoes)
 terminou sem deadlock (todos os 5 filosofos fizeram 3 refeicoes)
