@@ -2,7 +2,7 @@
 
 Trabalho da disciplina de Fundamentos de Processamento Paralelo e Distribuído (PUCRS). Problemas clássicos de sincronização em Go, cada versão como um programa independente. Nesta versão do repositório o Problema 1 (Jantar dos Filósofos) está implementado; o Problema 2 (Produtor/Consumidor) ainda não.
 
-**Grupo:** _(preencher nomes dos integrantes)_
+**Grupo:** _(Antônio Costa, João Pedro Bianchi, Gustavo Both)_
 
 ## Requisitos
 
