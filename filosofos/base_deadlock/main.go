@@ -76,6 +76,19 @@ func (m *mesa) registrarRefeicao(id int, espera time.Duration) {
 	m.mu.Unlock()
 }
 
+// totalRefeicoes soma as refeições concluídas por todos os filósofos. O
+// watchdog usa esse total para saber se ainda há progresso.
+func (m *mesa) totalRefeicoes() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	total := 0
+	for _, n := range m.feitas {
+		total += n
+	}
+	return total
+}
+
 // imprimirTabela mostra os dados de execução. É chamada nos dois finais
 // possíveis: deadlock detectado ou término normal.
 func (m *mesa) imprimirTabela() {
@@ -158,7 +171,7 @@ func main() {
 	n := flag.Int("n", 5, "numero de filosofos (e de garfos)")
 	r := flag.Int("r", 3, "refeicoes por filosofo")
 	pausaMs := flag.Int("pausa", 50, "pausa entre pegar o garfo esquerdo e o direito, em ms")
-	limiteS := flag.Int("limite", 5, "tempo maximo de execucao antes de declarar deadlock, em s")
+	limiteS := flag.Int("limite", 5, "tempo sem progresso (nenhuma refeicao nova) antes de declarar deadlock, em s")
 	flag.Parse()
 
 	if *n < 2 || *r < 1 {
@@ -189,28 +202,41 @@ func main() {
 
 	// Watchdog: a main NÃO pode chamar wg.Wait() direto, senão fica presa no
 	// deadlock e o terminal fica mudo. O Wait roda em outra goroutine e
-	// fecha `pronto`; a main escolhe entre `pronto` e o estouro do tempo.
+	// fecha `pronto`; a main escolhe entre `pronto` e o fim de um intervalo.
 	pronto := make(chan struct{})
 	go func() {
 		wg.Wait()
 		close(pronto)
 	}()
 
-	select {
-	case <-pronto:
-		// Acontece com pausa 0 ou pequena: o deadlock é POSSÍVEL, não certo.
-		fmt.Printf("\nterminou sem deadlock (todos os %d filosofos fizeram %d refeicoes)\n", *n, *r)
-		m.imprimirTabela()
+	// Só é deadlock se, em um intervalo inteiro de `limite`, NINGUÉM comeu.
+	// Se o total de refeições mudou, o programa só está lento (por exemplo
+	// com R grande) e a vigília continua.
+	ultimo := 0
+	for {
+		select {
+		case <-pronto:
+			// Acontece com pausa 0 ou pequena: o deadlock é POSSÍVEL, não certo.
+			fmt.Printf("\nterminou sem deadlock (todos os %d filosofos fizeram %d refeicoes)\n", *n, *r)
+			m.imprimirTabela()
+			return
 
-	case <-time.After(limite):
-		fmt.Printf("\nDEADLOCK detectado: nenhum progresso em %v\n", limite)
-		fmt.Println("as 4 condicoes de Coffman estao presentes:")
-		fmt.Println("  1. exclusao mutua  : cada garfo (channel com buffer 1) tem um dono por vez")
-		fmt.Println("  2. hold and wait   : cada filosofo segura o garfo esquerdo e espera o direito")
-		fmt.Println("  3. nao preempcao   : nenhum filosofo tira o garfo de outro")
-		fmt.Println("  4. espera circular : i espera i+1 e o ultimo espera o garfo 0")
-		m.imprimirTabela()
-		// Ao retornar da main o programa termina, mesmo com as goroutines
-		// dos filósofos bloqueadas no deadlock.
+		case <-time.After(limite):
+			total := m.totalRefeicoes()
+			if total != ultimo {
+				ultimo = total // houve progresso: continua vigiando
+				continue
+			}
+			fmt.Printf("\nDEADLOCK detectado: nenhum progresso em %v\n", limite)
+			fmt.Println("as 4 condicoes de Coffman estao presentes:")
+			fmt.Println("  1. exclusao mutua  : cada garfo (channel com buffer 1) tem um dono por vez")
+			fmt.Println("  2. hold and wait   : cada filosofo segura o garfo esquerdo e espera o direito")
+			fmt.Println("  3. nao preempcao   : nenhum filosofo tira o garfo de outro")
+			fmt.Println("  4. espera circular : i espera i+1 e o ultimo espera o garfo 0")
+			m.imprimirTabela()
+			// Ao retornar da main o programa termina, mesmo com as goroutines
+			// dos filósofos bloqueadas no deadlock.
+			return
+		}
 	}
 }

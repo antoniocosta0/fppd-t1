@@ -34,6 +34,7 @@ Rode sempre da raiz do projeto (a pasta que contém o `go.mod`). Todos os progra
 go run -race ./filosofos/base_deadlock -n 5 -r 3 -pausa 50 -limite 3
 go run -race ./filosofos/hierarquia    -n 5 -r 1000 -pausa 1
 go run -race ./filosofos/garcom        -n 5 -r 1000 -pausa 1
+go run -race ./filosofos/garcom        -n 5 -r 1000 -pausa 1 -assentos 3
 ```
 
 | Flag | Significado | Padrão |
@@ -41,7 +42,8 @@ go run -race ./filosofos/garcom        -n 5 -r 1000 -pausa 1
 | `-n` | número de filósofos (e de garfos), mínimo 2 | 5 |
 | `-r` | refeições por filósofo | 3 |
 | `-pausa` | pausa entre pegar o primeiro e o segundo garfo, em ms | 50 |
-| `-limite` | tempo máximo em s antes de declarar deadlock. No `base_deadlock` o padrão é 5. Nas outras versões é só uma rede de segurança e 0 desliga | 5 / 0 |
+| `-limite` | tempo em s. No `base_deadlock` é o tempo **sem progresso** (nenhuma refeição nova) antes de declarar deadlock, padrão 5. Nas outras versões é só uma rede de segurança (tempo total) e 0 desliga | 5 / 0 |
+| `-assentos` | só no `garcom`: quantos filósofos podem disputar garfos ao mesmo tempo, de 1 a N-1 | N-1 |
 
 Resultado esperado: o `base_deadlock` com pausa maior que 0 trava, e o programa imprime "DEADLOCK detectado" com o estado de cada filósofo e encerra. `hierarquia` e `garcom` terminam as R refeições de todos e imprimem a tabela com refeições e espera média por filósofo.
 

@@ -190,7 +190,7 @@ func main() {
 		select {
 		case <-pronto:
 		case <-time.After(limite):
-			fmt.Printf("\nTRAVOU: nenhum progresso em %v (nao esperado nesta versao)\n", limite)
+			fmt.Printf("\nTEMPO LIMITE: execucao excedeu %v (nao esperado nesta versao)\n", limite)
 			m.imprimirTabela()
 			return
 		}
