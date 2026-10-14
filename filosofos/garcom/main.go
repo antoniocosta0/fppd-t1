@@ -1,13 +1,5 @@
-// T1 - Problema 1: Jantar dos Filósofos - estratégia 2: GARÇOM
-//
-// O channel de assentos limita quantos filósofos podem disputar
-// os garfos simultaneamente. Por padrão, o limite é N-1, mas pode
-// ser alterado pela flag -assentos.
-//
-// Execução:
+// Jantar dos filosofos: garcom, no maximo N-1 filosofos disputam os garfos
 // go run -race ./filosofos/garcom -n 5 -r 1000 -pausa 1
-// go run -race ./filosofos/garcom -n 5 -r 1000 -pausa 1 -assentos 3
-
 package main
 
 import (
@@ -18,7 +10,6 @@ import (
 	"time"
 )
 
-// Estados do filósofo.
 const (
 	pensando = iota
 	esperandoAssento
@@ -44,7 +35,6 @@ func nomeEstado(e int) string {
 	}
 }
 
-// mesa guarda os dados compartilhados entre os filósofos.
 type mesa struct {
 	mu       sync.Mutex
 	estado   []int
@@ -100,7 +90,6 @@ func (m *mesa) imprimirTabela() {
 	fmt.Printf("\ntotal de refeicoes: %d\n", total)
 }
 
-// filosofo representa o processo do filósofo id.
 func filosofo(
 	id int,
 	forks []chan struct{},
@@ -116,19 +105,15 @@ func filosofo(
 	dir := (id + 1) % len(forks)
 
 	for rodada := 0; rodada < refeicoes; rodada++ {
-		// a) Pensar.
 		m.setEstado(id, pensando)
 		time.Sleep(time.Duration(rand.Intn(10)+1) * time.Millisecond)
 
-		// b) Iniciar a medição da espera.
 		t0 := time.Now()
 
-		// c) Pedir permissão ao garçom.
 		m.setEstado(id, esperandoAssento)
-		assentos <- struct{}{}
+		assentos <- struct{}{} // pede um assento ao garcom
 
-		// d) Pegar o garfo esquerdo e depois o direito.
-		<-forks[esq]
+		<-forks[esq] // pegar garfo = receber do canal
 		m.setEstado(id, comOEsquerdo)
 
 		time.Sleep(pausa)
@@ -136,15 +121,13 @@ func filosofo(
 		<-forks[dir]
 		espera := time.Since(t0)
 
-		// e) Comer.
 		m.setEstado(id, comendo)
 		time.Sleep(time.Duration(rand.Intn(10)+1) * time.Millisecond)
 		m.registrarRefeicao(id, espera)
 
-		// f) Devolver os garfos e liberar o assento.
 		forks[esq] <- struct{}{}
 		forks[dir] <- struct{}{}
-		<-assentos
+		<-assentos // libera o assento
 	}
 
 	m.setEstado(id, encerrado)
@@ -184,14 +167,12 @@ func main() {
 	fmt.Printf("garcom: N=%d R=%d pausa=%v assentos=%d\n",
 		*n, *r, pausa, limiteAssentos)
 
-	// Cada channel representa um garfo livre.
 	forks := make([]chan struct{}, *n)
 	for i := range forks {
 		forks[i] = make(chan struct{}, 1)
-		forks[i] <- struct{}{}
+		forks[i] <- struct{}{} // garfo livre = token no canal
 	}
 
-	// Ocupar um assento = enviar; liberar = receber.
 	assentos := make(chan struct{}, limiteAssentos)
 
 	m := novaMesa(*n)
@@ -206,6 +187,7 @@ func main() {
 		)
 	}
 
+	// wg.Wait numa goroutine pra main nao ficar presa
 	pronto := make(chan struct{})
 
 	go func() {
