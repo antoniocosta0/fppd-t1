@@ -1,17 +1,5 @@
-// T1 - Problema 1: Jantar dos Filósofos - estratégia 1: HIERARQUIA DE RECURSOS
-//
-// Quebra de simetria: em vez de "esquerdo e depois direito", todo filósofo
-// pega sempre o garfo de MENOR índice primeiro e o de MAIOR índice depois.
-// O único filósofo que muda de comportamento é o último (N-1), porque para
-// ele o garfo 0 é o da direita. Essa assimetria quebra a condição de Coffman
-// 4 (espera circular): não existe mais um ciclo i -> i+1 -> ... -> i.
-//
-// Referências da aula: exemplo 03-canais/filosofos (o filósofo 0 inverte a
-// ordem), Ben-Ari (quebra de simetria) e slides da aula 10 v2 (Coffman).
-//
-// Execução:
-//
-//	go run -race ./filosofos/hierarquia -n 5 -r 1000 -pausa 1
+// Jantar dos filosofos: hierarquia de recursos, sempre pega o garfo de menor indice primeiro
+// go run -race ./filosofos/hierarquia -n 5 -r 1000 -pausa 1
 package main
 
 import (
@@ -22,7 +10,6 @@ import (
 	"time"
 )
 
-// Estados do filósofo.
 const (
 	pensando     = 0
 	comOPrimeiro = 1
@@ -45,13 +32,11 @@ func nomeEstado(e int) string {
 	}
 }
 
-// mesa guarda os dados compartilhados entre os filósofos e a main. Todo
-// acesso passa pelo mutex (mesma ideia do monitor PC visto na aula 10).
 type mesa struct {
 	mu       sync.Mutex
-	estado   []int           // estado atual de cada filósofo
-	feitas   []int           // refeições concluídas por filósofo
-	esperaNs []time.Duration // tempo total de espera pelos garfos
+	estado   []int
+	feitas   []int
+	esperaNs []time.Duration
 }
 
 func novaMesa(n int) *mesa {
@@ -68,7 +53,6 @@ func (m *mesa) setEstado(id, e int) {
 	m.mu.Unlock()
 }
 
-// registrarRefeicao conta uma refeição concluída e soma a espera dela.
 func (m *mesa) registrarRefeicao(id int, espera time.Duration) {
 	m.mu.Lock()
 	m.feitas[id]++
@@ -76,7 +60,6 @@ func (m *mesa) registrarRefeicao(id int, espera time.Duration) {
 	m.mu.Unlock()
 }
 
-// imprimirTabela são os dados de execução usados na análise de fairness.
 func (m *mesa) imprimirTabela() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -96,8 +79,6 @@ func (m *mesa) imprimirTabela() {
 	fmt.Printf("\ntotal de refeicoes: %d\n", total)
 }
 
-// filosofo é o processo do filósofo `id`.
-// Diferença em relação ao base_deadlock: a ORDEM de aquisição dos garfos.
 func filosofo(id int, forks []chan struct{}, refeicoes int, pausa time.Duration,
 	m *mesa, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -105,38 +86,30 @@ func filosofo(id int, forks []chan struct{}, refeicoes int, pausa time.Duration,
 	esq := id
 	dir := (id + 1) % len(forks)
 
-	// Hierarquia: primeiro o garfo de menor índice, depois o de maior.
+	// menor indice primeiro, so o ultimo filosofo inverte a ordem
 	primeiro, segundo := esq, dir
 	if primeiro > segundo {
 		primeiro, segundo = segundo, primeiro
 	}
 
 	for rodada := 0; rodada < refeicoes; rodada++ {
-		// a) pensar
 		m.setEstado(id, pensando)
 		time.Sleep(time.Duration(rand.Intn(10)+1) * time.Millisecond)
 
-		// t0 ANTES de disputar os garfos.
 		t0 := time.Now()
 
-		// b) pegar o garfo de MENOR índice
-		<-forks[primeiro]
+		<-forks[primeiro] // pegar garfo = receber do canal
 		m.setEstado(id, comOPrimeiro)
 
-		// c) a mesma pausa que trava o base_deadlock. Aqui ela NÃO trava:
-		//    é a prova de que a hierarquia elimina o deadlock.
 		time.Sleep(pausa)
 
-		// d) pegar o garfo de MAIOR índice
 		<-forks[segundo]
 		espera := time.Since(t0)
 
-		// e) comer
 		m.setEstado(id, comendo)
 		time.Sleep(time.Duration(rand.Intn(10)+1) * time.Millisecond)
 		m.registrarRefeicao(id, espera)
 
-		// f) devolver os dois garfos
 		forks[primeiro] <- struct{}{}
 		forks[segundo] <- struct{}{}
 	}
@@ -160,11 +133,10 @@ func main() {
 
 	fmt.Printf("hierarquia: N=%d R=%d pausa=%v\n", *n, *r, pausa)
 
-	// Garfos: channel com buffer 1, token pré-carregado = garfo livre.
 	forks := make([]chan struct{}, *n)
 	for i := range forks {
 		forks[i] = make(chan struct{}, 1)
-		forks[i] <- struct{}{}
+		forks[i] <- struct{}{} // garfo livre = token no canal
 	}
 
 	m := novaMesa(*n)
@@ -176,9 +148,7 @@ func main() {
 		go filosofo(i, forks, *r, pausa, m, &wg)
 	}
 
-	// Encerramento ordenado: aqui o wg.Wait() SEMPRE retorna, porque não há
-	// deadlock. O watchdog fica como rede de segurança para os testes
-	// (-limite > 0): se algum dia travar, o programa avisa em vez de ficar mudo.
+	// wg.Wait numa goroutine pra main nao ficar presa
 	pronto := make(chan struct{})
 	go func() {
 		wg.Wait()

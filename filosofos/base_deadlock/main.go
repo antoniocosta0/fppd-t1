@@ -1,16 +1,5 @@
-// T1 - Problema 1: Jantar dos Filósofos - versão BASE (demonstra deadlock)
-//
-// Objetivo desta versão: provar que o deadlock ACONTECE.
-// Todos os filósofos pegam primeiro o garfo da esquerda e depois o da direita,
-// com uma pausa entre os dois: isso fecha a espera circular.
-//
-// Referências da aula: exemplos 03-canais/filosofos (garfo = chan struct{}
-// com buffer 1 e token) e Ben-Ari, Algoritmo 6.10 / 8.5 (todos pegam
-// forks[i] antes de forks[i+1] -> a espera circular continua possível).
-//
-// Execução:
-//
-//	go run -race ./filosofos/base_deadlock -n 5 -r 3 -pausa 50 -limite 3
+// Jantar dos filosofos: versao base, todos pegam o garfo esquerdo e depois o direito (da deadlock)
+// go run -race ./filosofos/base_deadlock -n 5 -r 3 -pausa 50 -limite 3
 package main
 
 import (
@@ -21,7 +10,6 @@ import (
 	"time"
 )
 
-// Estados do filósofo.
 const (
 	pensando     = 0
 	comOEsquerdo = 1
@@ -44,14 +32,11 @@ func nomeEstado(e int) string {
 	}
 }
 
-// mesa guarda os dados compartilhados entre os filósofos e a main. Todo
-// acesso passa pelo mutex (mesma ideia do monitor PC visto na aula 10): os
-// filósofos escrevem e a main lê, então sem o lock haveria data race.
 type mesa struct {
 	mu       sync.Mutex
-	estado   []int           // estado atual de cada filósofo
-	feitas   []int           // refeições concluídas por filósofo
-	esperaNs []time.Duration // tempo total de espera pelos garfos
+	estado   []int
+	feitas   []int
+	esperaNs []time.Duration
 }
 
 func novaMesa(n int) *mesa {
@@ -68,7 +53,6 @@ func (m *mesa) setEstado(id, e int) {
 	m.mu.Unlock()
 }
 
-// registrarRefeicao conta uma refeição concluída e soma a espera dela.
 func (m *mesa) registrarRefeicao(id int, espera time.Duration) {
 	m.mu.Lock()
 	m.feitas[id]++
@@ -76,8 +60,6 @@ func (m *mesa) registrarRefeicao(id int, espera time.Duration) {
 	m.mu.Unlock()
 }
 
-// totalRefeicoes soma as refeições concluídas por todos os filósofos. O
-// watchdog usa esse total para saber se ainda há progresso.
 func (m *mesa) totalRefeicoes() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -89,8 +71,6 @@ func (m *mesa) totalRefeicoes() int {
 	return total
 }
 
-// imprimirTabela mostra os dados de execução. É chamada nos dois finais
-// possíveis: deadlock detectado ou término normal.
 func (m *mesa) imprimirTabela() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -110,56 +90,31 @@ func (m *mesa) imprimirTabela() {
 	fmt.Printf("\ntotal de refeicoes: %d\n", total)
 }
 
-// filosofo é o processo do filósofo `id`.
-// Sequência do Ben-Ari: pensar -> pegar esquerdo -> pegar direito -> comer ->
-// devolver os dois garfos.
-//
-//   - id        : índice do filósofo
-//   - forks     : os N garfos (garfo livre = token dentro do channel)
-//   - refeicoes : quantas vezes repetir (o "R" do enunciado)
-//   - pausa     : tempo entre pegar o esquerdo e tentar o direito
-//   - m         : dados compartilhados (estado, refeições, espera)
-//   - wg        : avisa a main que este filósofo acabou
 func filosofo(id int, forks []chan struct{}, refeicoes int, pausa time.Duration,
 	m *mesa, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	// Mesa circular: o garfo da direita do último filósofo é o garfo 0.
 	esq := id
 	dir := (id + 1) % len(forks)
 
 	for rodada := 0; rodada < refeicoes; rodada++ {
-		// a) pensar
 		m.setEstado(id, pensando)
 		time.Sleep(time.Duration(rand.Intn(10)+1) * time.Millisecond)
 
-		// t0 marcado ANTES de disputar os garfos: é isso que o enunciado
-		// chama de "tempo de espera pelos garfos".
 		t0 := time.Now()
 
-		// b) pegar o garfo ESQUERDO. Pegar = receber do channel; se o garfo
-		//    está na mão de outro filósofo, o receive bloqueia.
-		<-forks[esq]
+		<-forks[esq] // pegar garfo = receber do canal
 		m.setEstado(id, comOEsquerdo)
 
-		// c) a PAUSA é a peça que provoca o deadlock: dá tempo de todos os N
-		//    filósofos pegarem o seu garfo esquerdo antes de qualquer um
-		//    tentar o direito. Com -pausa 0 o deadlock vira "às vezes".
-		time.Sleep(pausa)
+		time.Sleep(pausa) // da tempo de todos pegarem o esquerdo
 
-		// d) pegar o garfo DIREITO. Quando há deadlock, TODOS ficam parados
-		//    exatamente aqui, cada um segurando um garfo (hold and wait) e
-		//    esperando o garfo do vizinho (espera circular).
 		<-forks[dir]
 		espera := time.Since(t0)
 
-		// e) comer
 		m.setEstado(id, comendo)
 		time.Sleep(time.Duration(rand.Intn(10)+1) * time.Millisecond)
 		m.registrarRefeicao(id, espera)
 
-		// f) devolver os dois garfos (enviar o token de volta). A ordem de
-		//    devolução não muda o deadlock: ele acontece na AQUISIÇÃO.
 		forks[esq] <- struct{}{}
 		forks[dir] <- struct{}{}
 	}
@@ -184,39 +139,32 @@ func main() {
 
 	fmt.Printf("base_deadlock: N=%d R=%d pausa=%v limite=%v\n", *n, *r, pausa, limite)
 
-	// Garfos: channel com buffer 1. Buffer 1 = um dono por vez (exclusão
-	// mútua). Token pré-carregado = garfo LIVRE (há algo para receber).
 	forks := make([]chan struct{}, *n)
 	for i := range forks {
 		forks[i] = make(chan struct{}, 1)
-		forks[i] <- struct{}{}
+		forks[i] <- struct{}{} // garfo livre = token no canal
 	}
 
 	m := novaMesa(*n)
 
 	var wg sync.WaitGroup
 	for i := 0; i < *n; i++ {
-		wg.Add(1) // sempre ANTES do `go`
+		wg.Add(1)
 		go filosofo(i, forks, *r, pausa, m, &wg)
 	}
 
-	// Watchdog: a main NÃO pode chamar wg.Wait() direto, senão fica presa no
-	// deadlock e o terminal fica mudo. O Wait roda em outra goroutine e
-	// fecha `pronto`; a main escolhe entre `pronto` e o fim de um intervalo.
+	// wg.Wait numa goroutine pra main nao ficar presa
 	pronto := make(chan struct{})
 	go func() {
 		wg.Wait()
 		close(pronto)
 	}()
 
-	// Só é deadlock se, em um intervalo inteiro de `limite`, NINGUÉM comeu.
-	// Se o total de refeições mudou, o programa só está lento (por exemplo
-	// com R grande) e a vigília continua.
+	// so e deadlock se ninguem comeu durante um intervalo inteiro
 	ultimo := 0
 	for {
 		select {
 		case <-pronto:
-			// Acontece com pausa 0 ou pequena: o deadlock é POSSÍVEL, não certo.
 			fmt.Printf("\nterminou sem deadlock (todos os %d filosofos fizeram %d refeicoes)\n", *n, *r)
 			m.imprimirTabela()
 			return
@@ -224,7 +172,7 @@ func main() {
 		case <-time.After(limite):
 			total := m.totalRefeicoes()
 			if total != ultimo {
-				ultimo = total // houve progresso: continua vigiando
+				ultimo = total
 				continue
 			}
 			fmt.Printf("\nDEADLOCK detectado: nenhum progresso em %v\n", limite)
@@ -234,8 +182,6 @@ func main() {
 			fmt.Println("  3. nao preempcao   : nenhum filosofo tira o garfo de outro")
 			fmt.Println("  4. espera circular : i espera i+1 e o ultimo espera o garfo 0")
 			m.imprimirTabela()
-			// Ao retornar da main o programa termina, mesmo com as goroutines
-			// dos filósofos bloqueadas no deadlock.
 			return
 		}
 	}

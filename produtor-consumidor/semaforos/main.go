@@ -1,4 +1,4 @@
-// Produtor/consumidor com semaforos (notFull, notEmpty e mutex)
+// Produtor/consumidor com semaforos 
 // go run -race . -p 4 -c 4 -k 10
 package main
 
@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// semaforo feito com canal, igual ao da prova
+// semaforo feito com canal
 type Sem chan struct{}
 
 func NewSem(n int) Sem {
@@ -23,7 +23,7 @@ func NewSem(n int) Sem {
 func (s Sem) Acquire() { <-s }             // wait
 func (s Sem) Release() { s <- struct{}{} } // signal
 
-const FIM = -1 // avisa o consumidor que acabou
+const FIM = -1 // avisar o consumidor que acabou
 
 type Buffer struct {
 	itens             []int
@@ -55,7 +55,6 @@ func (b *Buffer) Inserir(v int) {
 	b.notEmpty.Release()
 }
 
-// o consumidor ja fez o Acquire do notEmpty antes de chamar
 func (b *Buffer) retirar() int {
 	b.mutex.Acquire()
 	v := b.itens[b.out]
@@ -65,7 +64,7 @@ func (b *Buffer) retirar() int {
 	return v
 }
 
-// simula o tempo de produzir/consumir, as vezes com uma pausa maior
+// simular o tempo de produzir/consumir, as vezes com uma pausa maior
 func trabalho() {
 	if rand.Intn(10) == 0 {
 		time.Sleep(5 * time.Millisecond)

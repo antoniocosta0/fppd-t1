@@ -1,4 +1,4 @@
-// Produtor/consumidor com canal (buffer = canal com capacidade K)
+// Produtor/consumidor com canal 
 // go run -race . -p 4 -c 4 -k 10
 package main
 
