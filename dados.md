@@ -105,3 +105,34 @@ filosofo  refeicoes  espera media   estado final
 4         1000       14.905ms       terminou (nao segura garfo nem assento)
 
 total de refeicoes: 5000
+
+### produtor-consumidor canal -p 4 -c 4 -k 1
+VERSÃO CANAL  P=4 C=4 K=1 itens/produtor=500
+tempo: 658ms | throughput: 3041 itens/s | ocupação média: 0.50 de 1 | timeouts: 64
+itens por consumidor: [519 552 446 483]
+OK: produzidos = consumidos = 2000
+### produtor-consumidor canal -p 4 -c 4 -k 10
+VERSÃO CANAL  P=4 C=4 K=10 itens/produtor=500
+tempo: 665ms | throughput: 3009 itens/s | ocupação média: 3.87 de 10 | timeouts: 31
+itens por consumidor: [522 493 522 463]
+OK: produzidos = consumidos = 2000
+### produtor-consumidor canal -p 4 -c 4 -k 100
+VERSÃO CANAL  P=4 C=4 K=100 itens/produtor=500
+tempo: 616ms | throughput: 3246 itens/s | ocupação média: 14.95 de 100 | timeouts: 34
+itens por consumidor: [487 491 468 554]
+OK: produzidos = consumidos = 2000
+### produtor-consumidor semaforos -p 4 -c 4 -k 1
+VERSÃO SEMÁFOROS  P=4 C=4 K=1 itens/produtor=500
+tempo: 692ms | throughput: 2892 itens/s | ocupação média: 0.56 de 1 | timeouts: 29
+itens por consumidor: [539 495 481 485]
+OK: produzidos = consumidos = 2000
+### produtor-consumidor semaforos -p 4 -c 4 -k 10
+VERSÃO SEMÁFOROS  P=4 C=4 K=10 itens/produtor=500
+tempo: 621ms | throughput: 3220 itens/s | ocupação média: 5.39 de 10 | timeouts: 40
+itens por consumidor: [516 504 495 485]
+OK: produzidos = consumidos = 2000
+### produtor-consumidor semaforos -p 4 -c 4 -k 100
+VERSÃO SEMÁFOROS  P=4 C=4 K=100 itens/produtor=500
+tempo: 618ms | throughput: 3234 itens/s | ocupação média: 55.93 de 100 | timeouts: 31
+itens por consumidor: [481 529 509 481]
+OK: produzidos = consumidos = 2000
